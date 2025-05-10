@@ -1,0 +1,206 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <form method="POST">
+                <input type="hidden" name="accion" value="bloquear">
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-lock"></i> Tomar Control
+                </button>
+            </form>
+               
+        </h1>
+        <a href="{{ url_for('tickets') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Tickets
+        </a>
+    </div>
+
+    <!-- Razón centrada y grande -->
+    {% if ticket.razon %}
+    <div class="text-center my-4">
+        <h2 class="fw-bold text-primary" style="font-size: 2rem;">
+            {{ ticket.razon }}
+        </h2>
+    </div>
+    {% endif %}
+
+    <!-- Formulario para actualizar estado -->
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Actualizar Estado del Ticket</div>
+        <div class="card-body">
+            <form method="POST" class="form-inline">
+                <input type="hidden" name="accion" value="actualizar_estado">
+                <div class="input-group w-100">
+                    <select name="nuevo_estado" class="form-select" {% if not ticket.bloqueado_por == current_user.id %}disabled{% endif %}>
+                        {% for estado in ['en_proceso', 'en_espera', 'resuelto', 'cerrado'] %}
+                            <option value="{{ estado }}" {% if ticket.estado == estado %}selected{% endif %}>
+                                {{ estado|replace('_', ' ')|title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary" {% if not ticket.bloqueado_por == current_user.id %}disabled{% endif %}>
+                        <i class="fas fa-sync"></i> Actualizar Estado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Información completa del ticket -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-light fw-bold">Detalles del Ticket</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Tipo de Actividad:</strong> {{ ticket.tipo_actividad }}</li>
+                        <li class="list-group-item"><strong>Tel. Supervisor:</strong> {{ ticket.tel_supervisor }}</li>
+                        <li class="list-group-item"><strong>Tel. Quien Atiende:</strong> {{ ticket.tel_quien_atiende }}</li>
+                        <li class="list-group-item"><strong>Técnico:</strong> {{ ticket.tecnico }}</li>
+                        <li class="list-group-item"><strong>Supervisor Aliado:</strong> {{ ticket.supervisor_aliado }}</li>
+                        <li class="list-group-item"><strong>Quien Atiende:</strong> {{ ticket.quien_atiende }}</li>
+                        <li class="list-group-item"><strong>Portero:</strong> {{ ticket.portero }}</li>
+                        <li class="list-group-item"><strong>Observaciones:</strong> {{ ticket.observaciones }}</li>
+                        <li class="list-group-item"><strong>Número OT:</strong> {{ ticket.numero_ot }}</li>
+                        <li class="list-group-item"><strong>Número Cuenta:</strong> {{ ticket.numero_cuenta }}</li>
+                        <li class="list-group-item"><strong>Datos Fachada:</strong> {{ ticket.datos_fachada }}</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Materiales:</strong> {{ ticket.materiales_adecuacion }}</li>
+                        <li class="list-group-item"><strong>Tiempo estimado:</strong> {{ ticket.tiempo_adecuacion }}</li>
+                        <li class="list-group-item"><strong>Punto acometida:</strong> {{ ticket.punto_acometida }}</li>
+                        <li class="list-group-item"><strong>Estado:</strong> {{ ticket.estado }}</li>
+                        <li class="list-group-item"><strong>Chat ID:</strong> {{ ticket.chat_id }}</li>
+                        <li class="list-group-item"><strong>Bloqueado Por:</strong> {{ ticket.nombre_asesor or ticket.bloqueado_por or 'No asignado' }}</li>
+                        <li class="list-group-item"><strong>Fecha Inicio:</strong> {{ ticket.fecha_creacion|date }}</li>
+                        <li class="list-group-item"><strong>Fecha Finalización:</strong> {{ ticket.fecha_fin|date }}</li>
+                        <li class="list-group-item"><strong>Fecha Creación:</strong> {{ ticket.fecha_creacion|date }}</li>
+                        <li class="list-group-item"><strong>Fecha Actualización:</strong> {{ ticket.fecha_actualizacion|date }}</li>
+                        <li class="list-group-item"><strong>Fecha Asignación:</strong>
+                            {% if ticket.fecha_bloqueo %}
+                                {{ ticket.fecha_bloqueo|date }} (hace {{ ((now() - ticket.fecha_bloqueo).total_seconds() // 60) | int }} min)
+                            {% else %}
+                                No asignado
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversación con técnico -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h6 class="m-0 fw-bold"><i class="fab fa-telegram"></i> Conversación con el Técnico</h6>
+        </div>
+        <div class="card-body chat-container p-3" id="chatContainer" style="height: 400px; overflow-y: auto;">
+            {% for mensaje in todos_mensajes %}
+                <div class="chat-message mb-3 {% if 'Técnico:' in mensaje.enviado_por %}chat-message-tecnico{% else %}chat-message-asesor{% endif %}" data-id="{{ mensaje.id }}">
+                    <div class="d-flex align-items-start">
+                        <div class="chat-avatar bg-{{ 'info' if 'Técnico:' in mensaje.enviado_por else 'primary' }} text-white rounded-circle p-2 me-2">
+                            <i class="fas fa-{{ 'wrench' if 'Técnico:' in mensaje.enviado_por else 'headset' }}"></i>
+                        </div>
+                        <div class="chat-content">
+                            <div class="chat-header">
+                                <strong>{{ mensaje.enviado_por }}</strong>
+                                <small class="text-muted ms-2">{{ mensaje.fecha_envio|date }}</small>
+                            </div>
+                            <div class="chat-body">
+                                {{ mensaje.mensaje|nl2br|safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-3">
+                    No hay mensajes en esta conversación
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Enviar mensaje -->
+    {% if ticket.bloqueado_por == current_user.id %}
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h6 class="m-0 fw-bold"><i class="fas fa-comment-dots"></i> Enviar Mensaje</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <input type="hidden" name="accion" value="enviar_mensaje">
+                <div class="mb-3">
+                    <textarea name="mensaje" class="form-control" rows="3" placeholder="Escribe tu mensaje aquí..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-paper-plane"></i> Enviar Mensaje
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h6 class="m-0 fw-bold text-primary"><i class="fas fa-history"></i> Historial de Cambios</h6>
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                {% for cambio in historial %}
+                    <li class="list-group-item">
+                        <div class="small text-muted">{{ cambio.fecha|date }}</div>
+                        {{ cambio.descripcion }}
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-center text-muted">
+                        No hay registro de cambios
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-message-tecnico {
+        background-color: #e6f7ff;
+        border-left: 4px solid #17a2b8;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    .chat-message-asesor {
+        background-color: #f0f8ff;
+        border-left: 4px solid #007bff;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    .chat-avatar {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .chat-content {
+        flex: 1;
+    }
+    .chat-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .chat-body {
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}

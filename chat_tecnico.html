@@ -1,0 +1,119 @@
+```html
+{% extends 'layout.html' %}
+
+{% block title %}Chat del Técnico - Ticket #{{ ticket.ticket }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments me-2"></i> Chat completo del técnico - Ticket #{{ ticket.ticket }}
+                    </h5>
+                    <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left"></i> Volver al ticket
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Cliente:</strong> {{ ticket.nombre_cliente }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Teléfono:</strong> {{ ticket.telefono }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Estado:</strong> 
+                            <span class="badge bg-{{ get_estado_color(ticket.estado) }}">{{ ticket.estado }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Estado de gestión:</strong> 
+                            <span class="badge bg-secondary">{{ ticket.estado_gestion }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-comment-dots me-2"></i> Historial de conversación completo</h5>
+                </div>
+                <div class="card-body" style="max-height: 700px; overflow-y: auto;">
+                    <div class="chat-container">
+                        {% if todos_mensajes %}
+                            {% for mensaje in todos_mensajes %}
+                                <div class="message-container mb-3 {% if 'Técnico' in mensaje.remitente %}message-tech{% else %}message-agent{% endif %}">
+                                    <div class="card {% if 'Técnico' in mensaje.remitente %}bg-light{% else %}bg-primary text-white{% endif %}">
+                                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                            <span>
+                                                <strong>{{ mensaje.remitente }}</strong>
+                                            </span>
+                                            <small>{{ mensaje.fecha|date }}</small>
+                                        </div>
+                                        <div class="card-body py-2">
+                                            {{ mensaje.mensaje|nl2br }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                No hay mensajes en este chat.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if ticket.bloqueado_por == current_user.id %}
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i> Enviar mensaje al técnico</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}" method="post">
+                        <input type="hidden" name="accion" value="enviar_mensaje">
+                        <div class="mb-3">
+                            <label for="mensaje" class="form-label">Mensaje:</label>
+                            <textarea class="form-control" id="mensaje" name="mensaje" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-paper-plane me-2"></i> Enviar mensaje
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .message-container {
+        max-width: 80%;
+    }
+    .message-tech {
+        margin-right: auto;
+    }
+    .message-agent {
+        margin-left: auto;
+    }
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+    }
+</style>
+{% endblock %}
+```

@@ -1,0 +1,202 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-chart-bar text-primary"></i> Reporte de Gestión de Tickets
+        </h1>
+        
+    </div>
+
+    <!-- Resumen General -->
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Tickets Registrados</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ tickets_por_estado | sum(attribute='total') }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Tickets Resueltos</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ tickets_por_estado | selectattr('estado', 'equalto', 'cerrado') | sum(attribute='total') }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Tickets Pendientes</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ tickets_por_estado | selectattr('estado', 'equalto', 'en_proceso') | sum(attribute='total') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablas de detalle -->
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Tickets por Estado</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Estado</th><th>Total</th></tr></thead>
+                <tbody>
+                    {% for row in tickets_por_estado %}
+                        <tr>
+                            <td>{{ row.estado }}</td>
+                            <td>{{ row.total }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    
+
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Tickets por Asesor</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Asesor</th><th>Total Gestionados</th></tr></thead>
+                <tbody>
+                    {% for row in tickets_por_asesor %}
+                        <tr>
+                            <td>{{ row.nombre }}</td>
+                            <td>{{ row.total }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Promedio de Resolución por Asesor (horas)</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Asesor</th><th>Cerrados</th><th>Promedio</th></tr></thead>
+                <tbody>
+                    {% for row in tiempo_promedio_por_asesor %}
+                        <tr>
+                            <td>{{ row.nombre }}</td>
+                            <td>{{ row.tickets_resueltos }}</td>
+                            <td>{{ row.promedio_horas | round(2) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Tickets Cerrados por Día (últimos 30 días)</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Fecha</th><th>Total Cerrados</th></tr></thead>
+                <tbody>
+                    {% for row in tickets_por_dia %}
+                        <tr>
+                            <td>{{ row.fecha }}</td>
+                            <td>{{ row.total }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Actividad de Asesores (últimos 7 días)</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Asesor</th><th>Tickets Trabajados</th><th>Acciones</th></tr></thead>
+                <tbody>
+                    {% for row in actividad_asesores %}
+                        <tr>
+                            <td>{{ row.nombre }}</td>
+                            <td>{{ row.tickets_trabajados }}</td>
+                            <td>{{ row.acciones_totales }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Tiempo Promedio por Estado de Gestión (minutos)</div>
+        <div class="card-body">
+            <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Estado</th><th>Tiempo Promedio</th></tr></thead>
+                <tbody>
+                    {% for row in tiempo_por_estado_gestion %}
+                        <tr>
+                            <td>{{ row.estado_gestion }}</td>
+                            <td>{{ row.tiempo_promedio_minutos | round(2) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-5">
+        <div class="card-header bg-light fw-bold">🏆 Reconocimientos</div>
+        <div class="card-body">
+            <ul class="mb-0">
+                <li><strong>Asesor más rápido:</strong>
+                    {% set rapido = tiempo_promedio_por_asesor | sort(attribute='promedio_horas') | first %}
+                    {{ rapido.nombre }} ({{ rapido.promedio_horas | round(2) }} h)
+                </li>
+                <li><strong>Asesor más lento:</strong>
+                    {% set lento = tiempo_promedio_por_asesor | sort(attribute='promedio_horas') | last %}
+                    {{ lento.nombre }} ({{ lento.promedio_horas | round(2) }} h)
+                </li>
+                <li><strong>Asesor más activo:</strong>
+                    {% set activo = actividad_asesores | sort(attribute='acciones_totales', reverse=True) | first %}
+                    {{ activo.nombre }} ({{ activo.acciones_totales }} acciones)
+                </li>
+                <li><strong>Asesor menos activo:</strong>
+                    {% set inactivo = actividad_asesores | sort(attribute='acciones_totales') | first %}
+                    {{ inactivo.nombre }} ({{ inactivo.acciones_totales }} acciones)
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="card mb-4">
+        <div class="card-header bg-light fw-bold">Detalle de Tickets Cerrados</div>
+        <div class="card-body">
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th># Ticket</th>
+                            <th>Asesor</th>
+                            <th>Creado</th>
+                            <th>Finalizado</th>
+                            <th>Duración (min)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in detalle_tickets %}
+                            <tr>
+                                <td>{{ row.ticket }}</td>
+                                <td>{{ row.asesor }}</td>
+                                <td>{{ row.fecha_creacion | date }}</td>
+                                <td>{{ row.fecha_finalizacion | date }}</td>
+                                <td>{{ row.duracion_min }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

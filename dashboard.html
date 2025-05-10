@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">
+        <i class="fas fa-tachometer-alt"></i> Dashboard
+    </h1>
+    
+    <!-- Estado de Tickets -->
+    <div class="row">
+        <!-- Pendientes -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Nuevos</div>
+                            <div class="h1 mb-0 font-weight-bold text-gray-800">
+                                {{ stats_estado|selectattr('estado', 'eq', 'pendiente')|map(attribute='total')|first|default(0) }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-2">Tickets sin asignar</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('tickets', estado='pendiente') }}" class="btn btn-sm btn-outline-danger w-100">Ver todos</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- En Proceso -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                En proceso</div>
+                            <div class="h1 mb-0 font-weight-bold text-gray-800">
+                                {{ stats_estado|selectattr('estado', 'eq', 'en_proceso')|map(attribute='total')|first|default(0) }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-2">Tickets en atención</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-sync fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('tickets', estado='en_proceso') }}" class="btn btn-sm btn-outline-warning w-100">Ver todos</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- En Espera -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">En espera
+                            </div>
+                            <div class="h1 mb-0 font-weight-bold text-gray-800">
+                                {{ stats_estado|selectattr('estado', 'eq', 'en_espera')|map(attribute='total')|first|default(0) }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-2">Tickets en espera</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-pause fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('tickets', estado='en_espera') }}" class="btn btn-sm btn-outline-info w-100">Ver todos</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resueltos -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Resueltos</div>
+                            <div class="h1 mb-0 font-weight-bold text-gray-800">
+                                {{ stats_estado|selectattr('estado', 'eq', 'resuelto')|map(attribute='total')|first|default(0) }}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-2">Tickets resueltos</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <a href="{{ url_for('tickets', estado='resuelto') }}" class="btn btn-sm btn-outline-success w-100">Ver todos</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Mis tickets asignados -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-clipboard-list"></i> Mis tickets asignados
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if mis_tickets %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ticket</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ticket in mis_tickets %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}">
+                                                {{ ticket.ticket }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ get_estado_color(ticket.estado) }}">
+                                                {{ ticket.estado|replace('_', ' ')|capitalize }}
+                                            </span>
+                                        </td>
+                                        <td class="small">{{ ticket.fecha_creacion }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted my-4">
+                            <i class="fas fa-info-circle"></i> No tienes tickets asignados actualmente.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tickets recientes -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-secondary">
+                        <i class="fas fa-history"></i> Tickets recientes
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if tickets_recientes %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ticket</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ticket in tickets_recientes %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}">
+                                                {{ ticket.ticket }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ get_estado_color(ticket.estado) }}">
+                                                {{ ticket.estado|replace('_', ' ')|capitalize }}
+                                            </span>
+                                        </td>
+                                        <td class="small">{{ ticket.fecha_creacion }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted my-4">
+                            <i class="fas fa-info-circle"></i> No hay tickets recientes.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para actualizar dinámicamente el dashboard -->
+<script>
+$(document).ready(function() {
+    // Función para actualizar las estadísticas del dashboard
+    function actualizarEstadisticas() {
+        $.ajax({
+            url: '{{ url_for("api_dashboard_stats") }}',
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                // Actualizar contadores de estado
+                updateCounter('pendiente', data.estados.pendiente || 0);
+                updateCounter('en_proceso', data.estados.en_proceso || 0);
+                updateCounter('en_espera', data.estados.en_espera || 0);
+                updateCounter('resuelto', data.estados.resuelto || 0);
+            },
+            error: function(xhr, status, error) {
+                console.error("Error actualizando estadísticas:", error);
+            }
+        });
+
+        // Función auxiliar para actualizar un contador
+        function updateCounter(estado, valor) {
+            const selectorMap = {
+                'pendiente': '.text-danger',
+                'en_proceso': '.text-warning',
+                'en_espera': '.text-info',
+                'resuelto': '.text-success'
+            };
+            const selector = selectorMap[estado];
+            if (selector) {
+                $(selector).closest('.card-body').find('.h1').text(valor);
+            }
+        }
+    }
+
+    // Función para actualizar las listas de tickets
+    function actualizarTickets() {
+        $.ajax({
+            url: '{{ url_for("api_dashboard_tickets") }}',
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                // Actualizar mis tickets
+                actualizarTablaTickets('#mis-tickets-table', data.mis_tickets);
+                
+                // Actualizar tickets recientes
+                actualizarTablaTickets('#tickets-recientes-table', data.tickets_recientes);
+            },
+            error: function(xhr, status, error) {
+                console.error("Error actualizando tickets:", error);
+            }
+        });
+    }
+
+    // Función auxiliar para actualizar una tabla de tickets
+    function actualizarTablaTickets(tableSelector, tickets) {
+        // Implementación para actualizar dinámicamente las tablas si se desea
+    }
+
+    // Actualizar cada 30 segundos
+    setInterval(function() {
+        actualizarEstadisticas();
+        actualizarTickets();
+    }, 30000);
+});
+</script>
+{% endblock %}

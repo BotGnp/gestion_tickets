@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    {% if usuario %}Editar Usuario{% else %}Nuevo Usuario{% endif %} - Sistema de Tickets
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-user{% if usuario %}-edit{% else %}-plus{% endif %} me-2"></i>
+        {% if usuario %}Editar Usuario{% else %}Nuevo Usuario{% endif %}
+    </h1>
+    
+    <div>
+        <a href="{{ url_for('usuarios') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Volver
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nombre de usuario</label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{ usuario.username if usuario else '' }}" {% if usuario %}readonly{% endif %} required>
+                        {% if usuario %}
+                        <small class="form-text text-muted">El nombre de usuario no se puede cambiar</small>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Aquí podría ir el resto de tu formulario -->
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ usuario.nombre if usuario else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ usuario.email if usuario else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="rol" class="form-label">Rol</label>
+                        <select class="form-select" id="rol" name="rol" required>
+                            <option value="">Seleccionar rol...</option>
+                            <option value="admin" {% if usuario and usuario.role == 'admin' %}selected{% endif %}>Administrador</option>
+                            <option value="asesor" {% if usuario and usuario.role == 'asesor' %}selected{% endif %}>Asesor</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            {% if usuario %}Nueva contraseña (dejar en blanco para mantener la actual){% else %}Contraseña{% endif %}
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password" {% if not usuario %}required{% endif %}>
+                        {% if usuario %}
+                        <small class="form-text text-muted">Dejar en blanco para no cambiar la contraseña</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,406 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6>Chat completo para el Ticket #{{ ticket.ticket }}</h6>
+                    <div>
+                        <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}" class="btn btn-sm btn-primary">Volver a detalles</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Cliente:</th>
+                                            <td>{{ ticket.nombre_cliente }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Teléfono:</th>
+                                            <td>{{ ticket.telefono }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Estado:</th>
+                                            <td>
+                                                <span class="badge bg-{{ get_estado_color(ticket.estado) }}">
+                                                    {{ ticket.estado }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Estado de gestión:</th>
+                                            <td>{{ ticket.estado_gestion or 'No definido' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Estadísticas:</th>
+                                            <td>
+                                                <span class="badge bg-primary">{{ estadisticas.total_mensajes }} mensajes</span>
+                                                <span class="badge bg-success">{{ estadisticas.mensajes_asesores }} de asesores</span>
+                                                <span class="badge bg-info">{{ estadisticas.mensajes_tecnicos }} de técnicos</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Primer mensaje:</th>
+                                            <td>{{ estadisticas.primer_mensaje|date }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Último mensaje:</th>
+                                            <td>{{ estadisticas.ultimo_mensaje|date }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Actualización:</th>
+                                            <td>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="actualizacionRealTime" checked>
+                                                    <label class="form-check-label" for="actualizacionRealTime">Actualización en tiempo real</label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat completo -->
+                    <div class="chat-container bg-light p-3 rounded" style="height: 500px; overflow-y: auto;" id="chatContainer">
+                        {% for mensaje in mensajes %}
+                            <div class="chat-message mb-3 {% if mensaje.tipo_remitente == 'tecnico' %}chat-message-tecnico{% else %}chat-message-asesor{% endif %}" data-id="{{ mensaje.id }}">
+                                <div class="d-flex align-items-start">
+                                    {% if mensaje.tipo_remitente == 'tecnico' %}
+                                        <div class="chat-avatar bg-info text-white rounded-circle p-2 me-2">
+                                            <i class="fas fa-wrench"></i>
+                                        </div>
+                                    {% else %}
+                                        <div class="chat-avatar bg-primary text-white rounded-circle p-2 me-2">
+                                            <i class="fas fa-headset"></i>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="chat-content">
+                                        <div class="chat-header">
+                                            <strong>{{ mensaje.enviado_por }}</strong>
+                                            <small class="text-muted ms-2">{{ mensaje.fecha_envio|date }}</small>
+                                        </div>
+                                        <div class="chat-body">
+                                            {{ mensaje.mensaje|nl2br }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Formulario para enviar mensajes -->
+                    {% if ticket.bloqueado_por == current_user.id %}
+                    <div class="mt-3">
+                        <form id="formEnviarMensaje" method="post" action="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}">
+                            <input type="hidden" name="accion" value="enviar_mensaje">
+                            <div class="input-group">
+                                <textarea class="form-control" name="mensaje" id="mensaje" placeholder="Escribe un mensaje..." rows="2"></textarea>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Enviar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatContainer = document.getElementById('chatContainer');
+        let ultimoMensajeId = 0;
+        let eventSource = null;
+        
+        // Buscar el ID del último mensaje
+        const mensajes = document.querySelectorAll('.chat-message');
+        if (mensajes.length > 0) {
+            ultimoMensajeId = parseInt(mensajes[mensajes.length - 1].getAttribute('data-id'));
+            // Scroll al último mensaje
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Función para crear un nuevo elemento de mensaje
+        function crearElementoMensaje(mensaje) {
+            const div = document.createElement('div');
+            div.className = `chat-message mb-3 ${mensaje.tipo_remitente === 'tecnico' ? 'chat-message-tecnico' : 'chat-message-asesor'}`;
+            div.setAttribute('data-id', mensaje.id);
+            
+            const html = `
+                <div class="d-flex align-items-start">
+                    <div class="chat-avatar bg-${mensaje.tipo_remitente === 'tecnico' ? 'info' : 'primary'} text-white rounded-circle p-2 me-2">
+                        <i class="fas fa-${mensaje.tipo_remitente === 'tecnico' ? 'wrench' : 'headset'}"></i>
+                    </div>
+                    <div class="chat-content">
+                        <div class="chat-header">
+                            <strong>${mensaje.enviado_por}</strong>
+                            <small class="text-muted ms-2">${mensaje.fecha_envio}</small>
+                        </div>
+                        <div class="chat-body">
+                            ${mensaje.mensaje.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            div.innerHTML = html;
+            return div;
+        }
+        
+        // Función para conectar SSE
+        function conectarEventSource() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource(`/api/chat/stream/{{ ticket.ticket }}?ultimo_id=${ultimoMensajeId}`);
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.mensajes && data.mensajes.length > 0) {
+                    data.mensajes.forEach(mensaje => {
+                        const nuevoMensaje = crearElementoMensaje(mensaje);
+                        chatContainer.appendChild(nuevoMensaje);
+                        ultimoMensajeId = mensaje.id;
+                    });
+                    
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            };
+            
+            eventSource.onerror = function() {
+                eventSource.close();
+                // Reintentar en 5 segundos
+                setTimeout(conectarEventSource, 5000);
+            };
+        }
+        
+        // Función para actualización periódica
+        function actualizarMensajes() {
+            fetch(`/api/chat/nuevos_mensajes/{{ ticket.ticket }}/${ultimoMensajeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.mensajes && data.mensajes.length > 0) {
+                        data.mensajes.forEach(mensaje => {
+                            const nuevoMensaje = crearElementoMensaje(mensaje);
+                            chatContainer.appendChild(nuevoMensaje);
+                            ultimoMensajeId = mensaje.id;
+                        });
+                        
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                })
+                .catch(error => console.error('Error al actualizar mensajes:', error));
+        }
+        
+        // Switch de actualización en tiempo real
+        const switchRealtime = document.getElementById('actualizacionRealTime');
+        let intervaloActualizacion = null;
+        
+        switchRealtime.addEventListener('change', function() {
+            if (this.checked) {
+                // Activar SSE
+                if ('EventSource' in window) {
+                    conectarEventSource();
+                    if (intervaloActualizacion) {
+                        clearInterval(intervaloActualizacion);
+                        intervaloActualizacion = null;
+                    }
+                } else {
+                    // Fallback para navegadores sin soporte SSE
+                    intervaloActualizacion = setInterval(actualizarMensajes, 3000);
+                }
+            } else {
+                // Desactivar actualización
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+                if (intervaloActualizacion) {
+                    clearInterval(intervaloActualizacion);
+                    intervaloActualizacion = null;
+                }
+            }
+        });
+        
+        // Iniciar actualización según el estado del switch
+        if (switchRealtime.checked) {
+            if ('EventSource' in window) {
+                conectarEventSource();
+            } else {
+                intervaloActualizacion = setInterval(actualizarMensajes, 3000);
+            }
+        }
+        
+        // Formulario para enviar mensajes
+        const formEnviarMensaje = document.getElementById('formEnviarMensaje');
+        if (formEnviarMensaje) {
+            formEnviarMensaje.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                fetch("{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}", {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(() => {
+                    // Limpiar campo de mensaje
+                    document.getElementById('mensaje').value = '';
+                    
+                    // Forzar actualización de mensajes
+                    setTimeout(actualizarMensajes, 500);
+                })
+                .catch(error => console.error('Error al enviar mensaje:', error));
+            });
+        }
+    });
+</script>
+
+<style>
+    .chat-message-tecnico {
+        background-color: #e6f7ff;
+        border-left: 4px solid #17a2b8;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    
+    .chat-message-asesor {
+        background-color: #f0f8ff;
+        border-left: 4px solid #007bff;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    
+    .chat-avatar {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}
+"""
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Depuración para mensajes existentes
+    console.log('Mensajes iniciales:', document.querySelectorAll('.chat-message').length);
+    console.log('Mensajes de técnicos:', document.querySelectorAll('.chat-message.tecnico').length);
+    
+    // Para SSE
+    const eventoSource = new EventSource('/api/chat/stream/{{ticket.ticket}}?ultimo_id={{ultimo_id}}');
+    
+    eventoSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.mensajes && data.mensajes.length > 0) {
+            console.log('Nuevos mensajes recibidos:', data.mensajes.length);
+            
+            data.mensajes.forEach(mensaje => {
+                console.log('Procesando mensaje:', mensaje);
+                console.log('Tipo de remitente:', mensaje.tipo_remitente);
+                
+                // Añadir al chat
+                añadirMensajeChat(mensaje);
+                
+                // Actualizar estadísticas
+                actualizarEstadisticas(mensaje.tipo_remitente);
+            });
+        }
+    };
+    
+    // Para peticiones AJAX normales
+    function cargarNuevosMensajes() {
+        const ultimoId = document.querySelector('.chat-message:last-child')?.dataset.id || 0;
+        
+        fetch(`/api/chat/nuevos_mensajes/{{ticket.ticket}}/${ultimoId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.mensajes && data.mensajes.length > 0) {
+                    console.log('Nuevos mensajes por AJAX:', data.mensajes.length);
+                    
+                    data.mensajes.forEach(mensaje => {
+                        console.log('Procesando mensaje AJAX:', mensaje);
+                        console.log('Tipo de remitente AJAX:', mensaje.tipo_remitente);
+                        
+                        // Añadir al chat
+                        añadirMensajeChat(mensaje);
+                        
+                        // Actualizar estadísticas
+                        actualizarEstadisticas(mensaje.tipo_remitente);
+                    });
+                }
+            })
+            .catch(error => console.error('Error al cargar mensajes:', error));
+    }
+    
+    function añadirMensajeChat(mensaje) {
+        const chatContainer = document.getElementById('chat-messages');
+        const messageDiv = document.createElement('div');
+        
+        messageDiv.className = `chat-message ${mensaje.tipo_remitente}`;
+        messageDiv.dataset.id = mensaje.id;
+        
+        // Verificar explícitamente si es un mensaje de técnico
+        const esTecnico = mensaje.enviado_por.includes('Técnico:');
+        console.log(`Mensaje de ${mensaje.enviado_por} - ¿Es técnico? ${esTecnico}`);
+        
+        if (esTecnico) {
+            messageDiv.classList.add('tecnico'); // Clase adicional para mensajes de técnicos
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="sender">${mensaje.enviado_por}</div>
+            <div class="timestamp">${mensaje.fecha_envio}</div>
+            <div class="message-content">${mensaje.mensaje}</div>
+        `;
+        
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    function actualizarEstadisticas(tipoRemitente) {
+        const totalMensajes = document.getElementById('total-mensajes');
+        const mensajesAsesores = document.getElementById('mensajes-asesores');
+        const mensajesTecnicos = document.getElementById('mensajes-tecnicos');
+        
+        totalMensajes.textContent = parseInt(totalMensajes.textContent || 0) + 1;
+        
+        if (tipoRemitente === 'tecnico') {
+            mensajesTecnicos.textContent = parseInt(mensajesTecnicos.textContent || 0) + 1;
+        } else {
+            mensajesAsesores.textContent = parseInt(mensajesAsesores.textContent || 0) + 1;
+        }
+    }
+    
+    // Alternativa al SSE si hay problemas
+    const usarAjaxFallback = true;  // Configura según sea necesario
+    
+    if (usarAjaxFallback) {
+        // Establecer intervalo para verificar nuevos mensajes cada 5 segundos
+        setInterval(cargarNuevosMensajes, 5000);
+    }
+});
+</script>
+"""

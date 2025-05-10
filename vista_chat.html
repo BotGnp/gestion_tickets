@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat #{{ ticket.ticket }} - {{ ticket.nombre_cliente }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i> Conversación de Chat - Ticket #{{ ticket.ticket }}
+                    </h5>
+                    <div>
+                        <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}" class="btn btn-sm btn-light">
+                            <i class="fas fa-ticket-alt"></i> Ver Ticket
+                        </a>
+                        <a href="{{ url_for('chat_telegram') }}" class="btn btn-sm btn-light ms-2">
+                            <i class="fas fa-list"></i> Todos los Chats
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Información del Ticket</h6>
+                            <table class="table table-sm table-bordered">
+                                <tr>
+                                    <th>Cliente:</th>
+                                    <td>{{ ticket.nombre_cliente }}</td>
+                                    <th>Teléfono:</th>
+                                    <td>{{ ticket.telefono }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Estado:</th>
+                                    <td><span class="badge bg-{{ get_estado_color(ticket.estado) }}">{{ ticket.estado }}</span></td>
+                                    <th>Estado de Gestión:</th>
+                                    <td>{{ ticket.estado_gestion or "No definido" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Asignado a:</th>
+                                    <td colspan="3">{{ ticket.nombre_asesor or "No asignado" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Estadísticas del Chat</h6>
+                            <table class="table table-sm table-bordered">
+                                <tr>
+                                    <th>Total mensajes:</th>
+                                    <td>{{ estadisticas.total_mensajes }}</td>
+                                    <th>Primer mensaje:</th>
+                                    <td>{{ estadisticas.primer_mensaje|date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Mensajes del técnico:</th>
+                                    <td>{{ estadisticas.mensajes_tecnicos }}</td>
+                                    <th>Último mensaje:</th>
+                                    <td>{{ estadisticas.ultimo_mensaje|date }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Mensajes de asesores:</th>
+                                    <td colspan="3">{{ estadisticas.mensajes_asesores }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-history"></i> Historial de Mensajes</h5>
+                        <button id="actualizarChat" class="btn btn-sm btn-light">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="chat-container" class="chat-container">
+                        <div id="mensajes-list" class="mensajes-list">
+                            <!-- Los mensajes se cargarán aquí dinámicamente -->
+                            <div class="text-center p-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando mensajes...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form id="enviar-mensaje-form" class="d-flex">
+                        <input type="hidden" id="chat_id" value="{{ chat_id }}">
+                        <input type="hidden" id="ticket_id" value="{{ ticket.id }}">
+                        <input type="text" id="mensaje" class="form-control" placeholder="Escribe un mensaje..." required>
+                        <button type="submit" class="btn btn-primary ms-2">
+                            <i class="fas fa-paper-plane"></i> Enviar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chat-container {
+        height: 60vh;
+        overflow-y: auto;
+    }
+    
+    .mensaje {
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        border-radius: 10px;
+        max-width: 80%;
+        position: relative;
+    }
+    
+    .mensaje-asesor {
+        background-color: #d1ecf1;
+        margin-right: auto;
+        margin-left: 10px;
+    }
+    
+    .mensaje-tecnico {
+        background-color: #e2e3e5;
+        margin-left: auto;
+        margin-right: 10px;
+    }
+    
+    .mensaje-header {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    
+    .mensaje-content {
+        word-break: break-word;
+    }
+    
+    .mensaje-time {
+        font-size: 0.7rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 5px;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatId = document.getElementById('chat_id').value;
+        const mensajesList = document.getElementById('mensajes-list');
+        const chatContainer = document.getElementById('chat-container');
+        const enviarForm = document.getElementById('enviar-mensaje-form');
+        const mensajeInput = document.getElementById('mensaje');
+        
+        // Función para cargar mensajes
+        function cargarMensajes() {
+            fetch(`/api/mensajes_chat?chat_id=${chatId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener los mensajes');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        mensajesList.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                        return;
+                    }
+                    
+                    if (data.mensajes.length === 0) {
+                        mensajesList.innerHTML = `<div class="alert alert-info">No hay mensajes en este chat.</div>`;
+                        return;
+                    }
+                    
+                    // Limpiar el contenedor de mensajes
+                    mensajesList.innerHTML = '';
+                    
+                    // Agregar cada mensaje
+                    data.mensajes.forEach(mensaje => {
+                        const esTecnico = mensaje.enviado_por_tecnico;
+                        const tipoMensaje = esTecnico ? 'mensaje-tecnico' : 'mensaje-asesor';
+                        const iconoMensaje = esTecnico ? 'fa-user-hard-hat' : 'fa-headset';
+                        
+                        const mensajeElement = document.createElement('div');
+                        mensajeElement.className = `mensaje ${tipoMensaje}`;
+                        mensajeElement.innerHTML = `
+                            <div class="mensaje-header">
+                                <i class="fas ${iconoMensaje}"></i> <strong>${mensaje.enviado_por}</strong>
+                            </div>
+                            <div class="mensaje-content">${mensaje.mensaje}</div>
+                            <div class="mensaje-time">${mensaje.fecha_envio}</div>
+                        `;
+                        
+                        mensajesList.appendChild(mensajeElement);
+                    });
+                    
+                    // Scroll al final del chat
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    mensajesList.innerHTML = `<div class="alert alert-danger">Error al cargar los mensajes: ${error.message}</div>`;
+                });
+        }
+        
+        // Cargar mensajes al iniciar
+        cargarMensajes();
+        
+        // Actualizar mensajes al hacer clic en el botón de actualizar
+        document.getElementById('actualizarChat').addEventListener('click', function() {
+            cargarMensajes();
+        });
+        
+        // Enviar mensaje
+        enviarForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const mensaje = mensajeInput.value.trim();
+            if (!mensaje) return;
+            
+            // Datos para enviar
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('mensaje', mensaje);
+            formData.append('ticket_id', document.getElementById('ticket_id').value);
+            
+            // Mostrar indicador de envío
+            mensajeInput.disabled = true;
+            mensajeInput.placeholder = 'Enviando...';
+            
+            // Enviar mensaje al servidor
+            fetch('/enviar_mensaje_api', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Limpiar input y recargar mensajes
+                    mensajeInput.value = '';
+                    cargarMensajes();
+                } else {
+                    alert('Error al enviar el mensaje: ' + (data.error || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al enviar el mensaje: ' + error.message);
+            })
+            .finally(() => {
+                // Restaurar input
+                mensajeInput.disabled = false;
+                mensajeInput.placeholder = 'Escribe un mensaje...';
+                mensajeInput.focus();
+            });
+        });
+        
+        // Auto-refresh cada 30 segundos
+        setInterval(cargarMensajes, 30000);
+    });
+</script>
+{% endblock %}

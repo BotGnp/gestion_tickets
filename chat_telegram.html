@@ -1,0 +1,86 @@
+{% extends 'layout.html' %}
+
+{% block title %}Chats de Telegram{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0">
+                    <h6>Chats de Telegram Activos</h6>
+                    <p class="text-sm mb-0">
+                        Lista de tickets con conversaciones de Telegram
+                    </p>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Ticket</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Cliente</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Estado</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Mensajes</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Último mensaje</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Asesor</th>
+                                    <th class="text-secondary opacity-7"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in tickets %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex px-2 py-1">
+                                            <div class="d-flex flex-column justify-content-center">
+                                                <h6 class="mb-0 text-sm">{{ ticket.ticket }}</h6>
+                                                <p class="text-xs text-secondary mb-0">{{ ticket.fecha_creacion|date }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ ticket.nombre_cliente }}</p>
+                                        <p class="text-xs text-secondary mb-0">{{ ticket.telefono }}</p>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ get_estado_color(ticket.estado) }}">{{ ticket.estado }}</span>
+                                        <p class="text-xs text-secondary mb-0">{{ ticket.estado_gestion or '-' }}</p>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ ticket.total_mensajes }} mensajes</p>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ ticket.ultimo_mensaje|date if ticket.ultimo_mensaje else '-' }}</p>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{ ticket.nombre_asesor or 'Sin asignar' }}</p>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('ver_chat_completo', numero_ot=ticket.ticket) }}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-comments"></i> Ver chat
+                                            </a>
+                                            <a href="{{ url_for('ver_ticket', numero_ot=ticket.ticket) }}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-ticket-alt"></i> Ver ticket
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-3">
+                                        <div class="alert alert-info mb-0">
+                                            No hay chats de Telegram registrados.
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
